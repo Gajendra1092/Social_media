@@ -11,6 +11,20 @@ export const appwriteConfig = {
   followsCollectionId: import.meta.env.VITE_APPWRITE_FOLLOWS_COLLECTION_ID,
 };
 
+// Debug: Log configuration in development
+if (import.meta.env.DEV) {
+  console.log('🔧 Appwrite Configuration:', {
+    url: appwriteConfig.url,
+    projectId: appwriteConfig.projectId,
+    databaseId: appwriteConfig.databaseId,
+    storageId: appwriteConfig.storageId,
+    userCollectionId: appwriteConfig.userCollectionId,
+    postCollectionId: appwriteConfig.postCollectionId,
+    savesCollectionId: appwriteConfig.savesCollectionId,
+    followsCollectionId: appwriteConfig.followsCollectionId,
+  });
+}
+
 export const client = new Client();
 
 client.setEndpoint(appwriteConfig.url);
