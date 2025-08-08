@@ -1,24 +1,37 @@
+
 import { Models } from "appwrite";
 
 // import { useToast } from "@/components/ui/use-toast";
 import { Loader, PostCard, UserCard } from "@/components/shared";
-import { useGetRecentPosts, useGetUsers } from "@/lib/react-query/queries";
+import { useGetRecentPosts, useGetUsers, useGetFollowedUsersPosts } from "@/lib/react-query/queries";
+import { useUserContext } from "@/context/AuthContext";
 
 const Home = () => {
   // const { toast } = useToast();
+  const { user } = useUserContext();
 
   const {
     data: posts,
     isLoading: isPostLoading,
     isError: isErrorPosts,
   } = useGetRecentPosts();
+
+  const {
+    data: followedPosts,
+    isLoading: isFollowedPostsLoading,
+    isError: isErrorFollowedPosts,
+  } = useGetFollowedUsersPosts(user.id);
   const {
     data: creators,
     isLoading: isUserLoading,
     isError: isErrorCreators,
   } = useGetUsers(10);
 
-  if (isErrorPosts || isErrorCreators) {
+  // Use followed posts if available, otherwise fall back to recent posts
+  const displayPosts = (followedPosts?.documents?.length || 0) > 0 ? followedPosts : posts;
+  const isDisplayPostsLoading = isFollowedPostsLoading || isPostLoading;
+
+  if (isErrorPosts || isErrorCreators || isErrorFollowedPosts) {
     return (
       <div className="flex flex-1">
         <div className="home-container">
@@ -36,11 +49,11 @@ const Home = () => {
       <div className="home-container">
         <div className="home-posts">
           <h2 className="h3-bold md:h2-bold text-left w-full">Home Feed</h2>
-          {isPostLoading && !posts ? (
+          {isDisplayPostsLoading && !displayPosts ? (
             <Loader />
           ) : (
             <ul className="flex flex-col flex-1 gap-9 w-full ">
-              {posts?.documents.map((post: Models.Document) => (
+              {displayPosts?.documents.map((post: Models.Document) => (
                 <li key={post.$id} className="flex justify-center w-full">
                   <PostCard post={post} />
                 </li>

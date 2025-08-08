@@ -19,7 +19,7 @@ export async function createUserAccount(user: INewUser) {
 
     if (!newAccount) throw Error;
 
-    const avatarUrl = avatars.getInitials(user.name);
+    const avatarUrl = avatars.getInitials(user.name).toString();
 
     const newUser = await saveUserToDB({
       accountId: newAccount.$id,
@@ -41,7 +41,7 @@ export async function saveUserToDB(user: {
   accountId: string;
   email: string;
   name: string;
-  imageUrl: URL;
+  imageUrl: string;
   username?: string;
 }) {
   try {
@@ -125,7 +125,7 @@ export async function createPost(post: INewPost) {
 
     if (!uploadedFile) throw Error;
 
-    // Get file url
+    // Get file url (direct view, no transformations)
     const fileUrl = getFilePreview(uploadedFile.$id);
     if (!fileUrl) {
       await deleteFile(uploadedFile.$id);
@@ -176,23 +176,32 @@ export async function uploadFile(file: File) {
   }
 }
 
-// ============================== GET FILE URL
-export function getFilePreview(fileId: string) {
+// ============================== GET FILE URL (Direct View - No Transformations)
+export function getFilePreview(fileId: string): string | undefined {
   try {
-    const fileUrl = storage.getFilePreview(
+    // Use getFileView instead of getFilePreview to avoid image transformations
+    const fileUrl = storage.getFileView(
       appwriteConfig.storageId,
-      fileId,
-      2000,
-      2000,
-      "top",
-      100
+      fileId
     );
 
     if (!fileUrl) throw Error;
 
-    return fileUrl;
+    const urlString = fileUrl.toString();
+    return urlString;
   } catch (error) {
-    console.log(error);
+
+    // Fallback to getFileDownload if getFileView fails
+    try {
+      const downloadUrl = storage.getFileDownload(
+        appwriteConfig.storageId,
+        fileId
+      );
+      const downloadUrlString = downloadUrl.toString();
+      return downloadUrlString;
+    } catch (downloadError) {
+      console.error(`[getFilePreview] Both file view and download failed for ${fileId}:`, downloadError);
+    }
   }
 }
 
@@ -225,7 +234,10 @@ export async function searchPosts(searchTerm: string) {
 }
 
 export async function getInfinitePosts({ pageParam }: { pageParam: number }) {
-  const queries: any[] = [Query.orderDesc("$updatedAt"), Query.limit(9)];
+  const queries: any[] = [
+    Query.orderDesc("$updatedAt"),
+    Query.limit(9)
+  ];
 
   if (pageParam) {
     queries.push(Query.cursorAfter(pageParam.toString()));
@@ -280,7 +292,7 @@ export async function updatePost(post: IUpdatePost) {
       const uploadedFile = await uploadFile(post.file[0]);
       if (!uploadedFile) throw Error;
 
-      // Get new file url
+      // Get new file url (direct view, no transformations)
       const fileUrl = getFilePreview(uploadedFile.$id);
       if (!fileUrl) {
         await deleteFile(uploadedFile.$id);
@@ -501,7 +513,7 @@ export async function updateUser(user: IUpdateUser) {
       const uploadedFile = await uploadFile(user.file[0]);
       if (!uploadedFile) throw Error;
 
-      // Get new file url
+      // Get new file url (direct view, no transformations)
       const fileUrl = getFilePreview(uploadedFile.$id);
       if (!fileUrl) {
         await deleteFile(uploadedFile.$id);
@@ -542,5 +554,148 @@ export async function updateUser(user: IUpdateUser) {
     return updatedUser;
   } catch (error) {
     console.log(error);
+  }
+}
+
+// ============================================================
+// FOLLOW SYSTEM
+// ============================================================
+
+// ============================== FOLLOW USER
+export async function followUser(followerId: string, followingId: string) {
+  try {
+    const followRecord = await databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      ID.unique(),
+      {
+        follower: followerId,
+        following: followingId,
+      }
+    );
+
+    if (!followRecord) throw Error;
+
+    return followRecord;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+// ============================== UNFOLLOW USER
+export async function unfollowUser(followerId: string, followingId: string) {
+  try {
+    // Find the follow record
+    const followRecords = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      [
+        Query.equal("follower", followerId),
+        Query.equal("following", followingId)
+      ]
+    );
+
+    if (!followRecords || followRecords.documents.length === 0) {
+      throw new Error("Follow record not found");
+    }
+
+    // Delete the follow record
+    const statusCode = await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      followRecords.documents[0].$id
+    );
+
+    if (!statusCode) throw Error;
+
+    return { status: "Ok" };
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+// ============================== GET USER FOLLOWERS
+export async function getUserFollowers(userId: string) {
+  try {
+    const followers = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      [Query.equal("following", userId)]
+    );
+
+    if (!followers) throw Error;
+
+    return followers;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+// ============================== GET USER FOLLOWING
+export async function getUserFollowing(userId: string) {
+  try {
+    const following = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      [Query.equal("follower", userId)]
+    );
+
+    if (!following) throw Error;
+
+    return following;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+// ============================== CHECK IF USER IS FOLLOWING
+export async function isUserFollowing(followerId: string, followingId: string) {
+  try {
+    const followRecord = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.followsCollectionId,
+      [
+        Query.equal("follower", followerId),
+        Query.equal("following", followingId)
+      ]
+    );
+
+    return followRecord && followRecord.documents.length > 0;
+  } catch (error) {
+    console.log(error);
+    return false;
+  }
+}
+
+// ============================== GET POSTS FROM FOLLOWED USERS
+export async function getFollowedUsersPosts(userId: string) {
+  try {
+    // First get the list of users that the current user follows
+    const following = await getUserFollowing(userId);
+
+    if (!following || following.documents.length === 0) {
+      return { documents: [] };
+    }
+
+    // Extract the IDs of followed users
+    const followedUserIds = following.documents.map((follow: any) => follow.following);
+
+    // Get posts from followed users
+    const posts = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.postCollectionId,
+      [
+        Query.equal("creator", followedUserIds),
+        Query.orderDesc("$createdAt"),
+        Query.limit(20)
+      ]
+    );
+
+    if (!posts) throw Error;
+
+    return posts;
+  } catch (error) {
+    console.log(error);
+    return { documents: [] };
   }
 }

@@ -10,7 +10,14 @@ import {
 import { Button } from "@/components/ui";
 import { LikedPosts } from "@/_root/pages";
 import { useUserContext } from "@/context/AuthContext";
-import { useGetUserById } from "@/lib/react-query/queries";
+import {
+  useGetUserById,
+  useGetUserFollowers,
+  useGetUserFollowing,
+  useIsUserFollowing,
+  useFollowUser,
+  useUnfollowUser
+} from "@/lib/react-query/queries";
 import { GridPostList, Loader } from "@/components/shared";
 
 interface StabBlockProps {
@@ -31,6 +38,19 @@ const Profile = () => {
   const { pathname } = useLocation();
 
   const { data: currentUser } = useGetUserById(id || "");
+  const { data: followers } = useGetUserFollowers(id || "");
+  const { data: following } = useGetUserFollowing(id || "");
+  const { data: isFollowing } = useIsUserFollowing(user.id, id || "");
+  const { mutate: followUser, isLoading: isFollowingUser } = useFollowUser();
+  const { mutate: unfollowUser, isLoading: isUnfollowingUser } = useUnfollowUser();
+
+  const handleFollowUser = () => {
+    if (isFollowing) {
+      unfollowUser({ followerId: user.id, followingId: id || "" });
+    } else {
+      followUser({ followerId: user.id, followingId: id || "" });
+    }
+  };
 
   if (!currentUser)
     return (
@@ -61,9 +81,9 @@ const Profile = () => {
             </div>
 
             <div className="flex gap-8 mt-10 items-center justify-center xl:justify-start flex-wrap z-20">
-              <StatBlock value={currentUser.posts.length} label="Posts" />
-              <StatBlock value={20} label="Followers" />
-              <StatBlock value={20} label="Following" />
+              <StatBlock value={currentUser.posts?.length || 0} label="Posts" />
+              <StatBlock value={followers?.documents?.length || 0} label="Followers" />
+              <StatBlock value={following?.documents?.length || 0} label="Following" />
             </div>
 
             <p className="small-medium md:base-medium text-center xl:text-left mt-7 max-w-screen-sm">
@@ -90,8 +110,13 @@ const Profile = () => {
               </Link>
             </div>
             <div className={`${user.id === id && "hidden"}`}>
-              <Button type="button" className="shad-button_primary px-8">
-                Follow
+              <Button
+                type="button"
+                className="shad-button_primary px-8"
+                onClick={handleFollowUser}
+                disabled={isFollowingUser || isUnfollowingUser}
+              >
+                {isFollowingUser || isUnfollowingUser ? "Loading..." : isFollowing ? "Unfollow" : "Follow"}
               </Button>
             </div>
           </div>

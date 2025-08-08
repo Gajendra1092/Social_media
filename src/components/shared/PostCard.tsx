@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { PostStats } from "@/components/shared";
 import { multiFormatDateString } from "@/lib/utils";
 import { useUserContext } from "@/context/AuthContext";
+import { getFilePreview } from "@/lib/appwrite/api";
 
 type PostCardProps = {
   post: Models.Document;
@@ -70,9 +71,62 @@ const PostCard = ({ post }: PostCardProps) => {
         </div>
 
         <img
-          src={post.imageUrl || "/assets/icons/profile-placeholder.svg"}
+          src={(() => {
+            const originalUrl = post.imageUrl;
+            const imageId = (post as any).imageId;
+
+            // Check if imageUrl is a valid string URL
+            let isValidUrl = false;
+            let urlString = "";
+
+            if (typeof originalUrl === "string" && originalUrl.length > 0 && !originalUrl.includes("[object")) {
+              urlString = originalUrl;
+
+              // Check if this is an old preview URL that needs to be converted to view URL
+              if (urlString.includes('/preview?')) {
+                // Extract the file ID from the preview URL and convert to view URL
+                const fileIdMatch = urlString.match(/\/files\/([^\/]+)\/preview/);
+                if (fileIdMatch && fileIdMatch[1]) {
+                  const fileId = fileIdMatch[1];
+                  // Replace the preview part with view, keeping the project parameter
+                  const baseUrl = urlString.split('/files/')[0];
+                  const projectMatch = urlString.match(/project=([^&]+)/);
+                  const projectParam = projectMatch ? `?project=${projectMatch[1]}` : '';
+                  urlString = `${baseUrl}/files/${fileId}/view${projectParam}`;
+                }
+              }
+
+              isValidUrl = true;
+            } else if (originalUrl && typeof originalUrl === "object" && originalUrl.toString && originalUrl.toString() !== "[object Object]") {
+              // Handle URL objects
+              urlString = originalUrl.toString();
+
+              // Also check for preview URLs in URL objects
+              if (urlString.includes('/preview?')) {
+                const fileIdMatch = urlString.match(/\/files\/([^\/]+)\/preview/);
+                if (fileIdMatch && fileIdMatch[1]) {
+                  const fileId = fileIdMatch[1];
+                  const baseUrl = urlString.split('/files/')[0];
+                  const projectMatch = urlString.match(/project=([^&]+)/);
+                  const projectParam = projectMatch ? `?project=${projectMatch[1]}` : '';
+                  urlString = `${baseUrl}/files/${fileId}/view${projectParam}`;
+                }
+              }
+
+              isValidUrl = urlString.length > 0 && !urlString.includes("[object");
+            }
+
+            const computedUrl = isValidUrl
+              ? urlString
+              : (imageId ? getFilePreview(imageId) : "/assets/icons/profile-placeholder.svg");
+
+            return computedUrl;
+          })()}
           alt="post image"
           className="post-card_img"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = "/assets/icons/profile-placeholder.svg";
+          }}
         />
       </Link>
 

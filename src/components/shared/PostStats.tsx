@@ -17,7 +17,11 @@ type PostStatsProps = {
 
 const PostStats = ({ post, userId }: PostStatsProps) => {
   const location = useLocation();
-  const likesList = post.likes.map((user: Models.Document) => user.$id);
+
+  // Safely handle likes array - it might be undefined or not an array
+  const likesList = Array.isArray(post?.likes)
+    ? post.likes.map((user: Models.Document) => user.$id)
+    : [];
 
   const [likes, setLikes] = useState<string[]>(likesList);
   const [isSaved, setIsSaved] = useState(false);
@@ -28,8 +32,8 @@ const PostStats = ({ post, userId }: PostStatsProps) => {
 
   const { data: currentUser } = useGetCurrentUser();
 
-  const savedPostRecord = currentUser?.save.find(
-    (record: Models.Document) => record.post.$id === post.$id
+  const savedPostRecord = currentUser?.save?.find(
+    (record: Models.Document) => record?.post?.$id === post?.$id
   );
 
   useEffect(() => {
@@ -40,6 +44,8 @@ const PostStats = ({ post, userId }: PostStatsProps) => {
     e: React.MouseEvent<HTMLImageElement, MouseEvent>
   ) => {
     e.stopPropagation();
+
+    if (!post?.$id || !userId) return;
 
     let likesArray = [...likes];
 
@@ -57,6 +63,8 @@ const PostStats = ({ post, userId }: PostStatsProps) => {
     e: React.MouseEvent<HTMLImageElement, MouseEvent>
   ) => {
     e.stopPropagation();
+
+    if (!post?.$id || !userId) return;
 
     if (savedPostRecord) {
       setIsSaved(false);
