@@ -11,6 +11,7 @@ import {
   UpdateProfile,
   AllUsers,
 } from "@/_root/pages";
+import Debug from "@/_root/pages/Debug";
 import AuthLayout from "./_auth/AuthLayout";
 import RootLayout from "./_root/RootLayout";
 import SignupForm from "@/_auth/forms/SignupForm";
@@ -40,6 +41,7 @@ const App = () => {
           <Route path="/posts/:id" element={<PostDetails />} />
           <Route path="/profile/:id/*" element={<Profile />} />
           <Route path="/update-profile/:id" element={<UpdateProfile />} />
+          <Route path="/debug" element={<Debug />} />
         </Route>
       </Routes>
 

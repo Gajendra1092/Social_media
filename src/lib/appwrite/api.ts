@@ -10,6 +10,10 @@ import { IUpdatePost, INewPost, INewUser, IUpdateUser } from "@/types";
 // ============================== SIGN UP
 export async function createUserAccount(user: INewUser) {
   try {
+    console.log('📝 Attempting sign up for:', user.email);
+    console.log('🔧 Appwrite URL:', appwriteConfig.url);
+    console.log('🔧 Project ID:', appwriteConfig.projectId);
+
     const newAccount = await account.create(
       ID.unique(),
       user.email,
@@ -18,6 +22,7 @@ export async function createUserAccount(user: INewUser) {
     );
 
     if (!newAccount) throw Error;
+    console.log('✅ Account created:', newAccount);
 
     const avatarUrl = avatars.getInitials(user.name).toString();
 
@@ -29,9 +34,10 @@ export async function createUserAccount(user: INewUser) {
       imageUrl: avatarUrl,
     });
 
+    console.log('✅ User saved to DB:', newUser);
     return newUser;
   } catch (error) {
-    console.log(error);
+    console.error('❌ Sign up failed:', error);
     return error;
   }
 }
@@ -61,11 +67,17 @@ export async function saveUserToDB(user: {
 // ============================== SIGN IN
 export async function signInAccount(user: { email: string; password: string }) {
   try {
+    console.log('🔐 Attempting sign in for:', user.email);
+    console.log('🔧 Appwrite URL:', appwriteConfig.url);
+    console.log('🔧 Project ID:', appwriteConfig.projectId);
+
     const session = await account.createEmailSession(user.email, user.password);
+    console.log('✅ Sign in successful:', session);
 
     return session;
   } catch (error) {
-    console.log(error);
+    console.error('❌ Sign in failed:', error);
+    throw error;
   }
 }
 
